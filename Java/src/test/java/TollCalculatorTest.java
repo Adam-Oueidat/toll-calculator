@@ -163,31 +163,107 @@ class TollCalculatorTest {
     @Nested
     class FeeSchedule {
 
-        // The off-peak mid-day window (08:30–14:59) charges 8 SEK for any pass,
-        // including the :00–:29 half of each hour
+        // Full schedule: 0 SEK outside toll hours, 8/13/18 SEK within
+
+        @Test
+        void before0600_charges0() {
+            // 2024-02-05 Monday 05:59 — before toll hours begin
+            assertEquals(0, calculator.getTollFee(dateOf(2024, 2, 5, 5, 59), car));
+        }
+
+        @Test
+        void at0600_charges8() {
+            // 2024-02-05 Monday 06:00 — start of toll hours
+            assertEquals(8, calculator.getTollFee(dateOf(2024, 2, 5, 6, 0), car));
+        }
+
+        @Test
+        void at0629_charges8() {
+            // 2024-02-05 Monday 06:29 — end of first 8 SEK slot
+            assertEquals(8, calculator.getTollFee(dateOf(2024, 2, 5, 6, 29), car));
+        }
+
+        @Test
+        void at0630_charges13() {
+            // 2024-02-05 Monday 06:30 — start of pre-morning-rush 13 SEK slot
+            assertEquals(13, calculator.getTollFee(dateOf(2024, 2, 5, 6, 30), car));
+        }
 
         @Test
         void at0900_charges8() {
-            // 2024-02-05 Monday 09:00
+            // 2024-02-05 Monday 09:00 — mid-day off-peak
             assertEquals(8, calculator.getTollFee(dateOf(2024, 2, 5, 9, 0), car));
         }
 
         @Test
         void at1015_charges8() {
-            // 2024-02-05 Monday 10:15
+            // 2024-02-05 Monday 10:15 — mid-day off-peak
             assertEquals(8, calculator.getTollFee(dateOf(2024, 2, 5, 10, 15), car));
         }
 
         @Test
         void at1300_charges8() {
-            // 2024-02-05 Monday 13:00
+            // 2024-02-05 Monday 13:00 — mid-day off-peak
             assertEquals(8, calculator.getTollFee(dateOf(2024, 2, 5, 13, 0), car));
         }
 
         @Test
         void at1429_charges8() {
-            // 2024-02-05 Monday 14:29
+            // 2024-02-05 Monday 14:29 — end of mid-day off-peak
             assertEquals(8, calculator.getTollFee(dateOf(2024, 2, 5, 14, 29), car));
+        }
+
+        @Test
+        void at1759_charges13() {
+            // 2024-02-05 Monday 17:59 — end of post-afternoon-rush 13 SEK slot
+            assertEquals(13, calculator.getTollFee(dateOf(2024, 2, 5, 17, 59), car));
+        }
+
+        @Test
+        void at1800_charges8() {
+            // 2024-02-05 Monday 18:00 — start of evening 8 SEK slot
+            assertEquals(8, calculator.getTollFee(dateOf(2024, 2, 5, 18, 0), car));
+        }
+
+        @Test
+        void at1829_charges8() {
+            // 2024-02-05 Monday 18:29 — last charged minute of the day
+            assertEquals(8, calculator.getTollFee(dateOf(2024, 2, 5, 18, 29), car));
+        }
+
+        @Test
+        void at1830_charges0() {
+            // 2024-02-05 Monday 18:30 — toll hours have ended
+            assertEquals(0, calculator.getTollFee(dateOf(2024, 2, 5, 18, 30), car));
+        }
+    }
+
+    @Nested
+    class MaxDailyFee {
+
+        // The total fee for one day is capped at 60 SEK regardless of
+        // how many passes are made
+
+        @Test
+        void totalFee_isCappedAt60() {
+            // 7 separate windows totalling 71 SEK before cap:
+            // 06:30(13) + 07:31(18) + 08:32(8) + 09:33(8) + 10:34(8) + 11:35(8) + 12:36(8) = 71
+            assertEquals(60, calculator.getTollFee(car,
+                dateOf(2024, 2, 5,  6, 30),
+                dateOf(2024, 2, 5,  7, 31),
+                dateOf(2024, 2, 5,  8, 32),
+                dateOf(2024, 2, 5,  9, 33),
+                dateOf(2024, 2, 5, 10, 34),
+                dateOf(2024, 2, 5, 11, 35),
+                dateOf(2024, 2, 5, 12, 36)));
+        }
+
+        @Test
+        void totalFee_isNotCapped_whenUnder60() {
+            // 07:00 (18) + 15:30 (18) = 36 SEK — no cap applied
+            assertEquals(36, calculator.getTollFee(car,
+                dateOf(2024, 2, 5,  7,  0),
+                dateOf(2024, 2, 5, 15, 30)));
         }
     }
 
