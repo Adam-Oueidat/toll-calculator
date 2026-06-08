@@ -1,36 +1,35 @@
 
 import de.focus_shift.jollyday.core.HolidayManager;
 import de.focus_shift.jollyday.core.ManagerParameters;
-import java.time.LocalDate;
-import java.time.ZoneId;
-import java.util.*;
-import java.util.concurrent.*;
+import java.time.LocalDateTime;
+import java.time.temporal.ChronoUnit;
+import java.util.List;
 
 public class TollCalculator {
+
+  private static final int CHARGE_INTERVAL_MINUTES = 60;
+  private static final int MAX_DAILY_FEE = 60;
 
   /**
    * Calculate the total toll fee for one day
    *
-   * @param vehicle - the vehicle
-   * @param dates   - date and time of all passes on one day
+   * @param vehicle   - the vehicle
+   * @param dateTimes - date and time of all passes on one day
    * @return - the total toll fee for that day
    */
-  private static final int CHARGE_INTERVAL_MINUTES = 60;
-  private static final int MAX_DAILY_FEE = 60;
-
-  public int getTollFee(Vehicle vehicle, Date... dates) {
-    Date intervalStart = dates[0];
+  public int getTollFee(Vehicle vehicle, LocalDateTime... dateTimes) {
+    LocalDateTime intervalStart = dateTimes[0];
     int totalFee = 0;
     int windowFee = 0;
 
-    for (Date date : dates) {
-      int currentFee = getTollFee(date, vehicle);
+    for (LocalDateTime dateTime : dateTimes) {
+      int currentFee = getTollFee(dateTime, vehicle);
 
-      if (minutesBetween(intervalStart, date) <= CHARGE_INTERVAL_MINUTES) {
+      if (minutesBetween(intervalStart, dateTime) <= CHARGE_INTERVAL_MINUTES) {
         windowFee = Math.max(windowFee, currentFee);
       } else {
         totalFee += windowFee;
-        intervalStart = date;
+        intervalStart = dateTime;
         windowFee = currentFee;
       }
     }
@@ -39,12 +38,12 @@ public class TollCalculator {
     return Math.min(totalFee, MAX_DAILY_FEE);
   }
 
-  private long minutesBetween(Date from, Date to) {
-    return TimeUnit.MILLISECONDS.toMinutes(to.getTime() - from.getTime());
+  private long minutesBetween(LocalDateTime from, LocalDateTime to) {
+    return ChronoUnit.MINUTES.between(from, to);
   }
 
   private boolean isTollFreeVehicle(Vehicle vehicle) {
-    if(vehicle == null) return false;
+    if (vehicle == null) return false;
     String vehicleType = vehicle.getType();
     return vehicleType.equals(TollFreeVehicles.MOTORBIKE.getType()) ||
            vehicleType.equals(TollFreeVehicles.TRACTOR.getType()) ||
@@ -73,12 +72,10 @@ public class TollCalculator {
     new FeeSlot(18,  0, 18, 29,  8)
   );
 
-  public int getTollFee(final Date date, Vehicle vehicle) {
-    if (isTollFreeDate(date) || isTollFreeVehicle(vehicle)) return 0;
-    Calendar calendar = GregorianCalendar.getInstance();
-    calendar.setTime(date);
-    int hour = calendar.get(Calendar.HOUR_OF_DAY);
-    int minute = calendar.get(Calendar.MINUTE);
+  public int getTollFee(final LocalDateTime dateTime, Vehicle vehicle) {
+    if (isTollFreeDate(dateTime) || isTollFreeVehicle(vehicle)) return 0;
+    int hour = dateTime.getHour();
+    int minute = dateTime.getMinute();
 
     return SCHEDULE.stream()
         .filter(slot -> slot.contains(hour, minute))
@@ -87,21 +84,15 @@ public class TollCalculator {
         .orElse(0);
   }
 
-
   /**
-   * Utilize jollyday to ensure we find the correct swedish holidays. Can be adjusted to be configurable perhaps but the assumption is that it is a swedish city.
+   * Utilize jollyday to ensure we find the correct Swedish holidays.
    */
   private static final HolidayManager HOLIDAYS =
       HolidayManager.getInstance(ManagerParameters.create("se"));
 
-  private Boolean isTollFreeDate(Date date) {
-    LocalDate localDate = date.toInstant()
-        .atZone(ZoneId.systemDefault())
-        .toLocalDate();
-
-    if (localDate.getDayOfWeek().getValue() >= 6) return true;
-
-    return HOLIDAYS.isHoliday(localDate);
+  private boolean isTollFreeDate(LocalDateTime dateTime) {
+    if (dateTime.getDayOfWeek().getValue() >= 6) return true;
+    return HOLIDAYS.isHoliday(dateTime.toLocalDate());
   }
 
   private enum TollFreeVehicles {
@@ -111,6 +102,7 @@ public class TollCalculator {
     DIPLOMAT("Diplomat"),
     FOREIGN("Foreign"),
     MILITARY("Military");
+
     private final String type;
 
     TollFreeVehicles(String type) {
