@@ -22,6 +22,11 @@
             <version>5.10.1</version>
             <scope>test</scope>
         </dependency>
+        <dependency>
+            <groupId>de.focus-shift</groupId>
+            <artifactId>jollyday-jaxb</artifactId>
+            <version>1.5.2</version>
+        </dependency>
     </dependencies>
 
     <build>
@@ -30,6 +35,9 @@
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-surefire-plugin</artifactId>
                 <version>3.2.2</version>
+                <configuration>
+                    <jvm>/opt/homebrew/opt/openjdk/libexec/openjdk.jdk/Contents/Home/bin/java</jvm>
+                </configuration>
             </plugin>
         </plugins>
     </build>
